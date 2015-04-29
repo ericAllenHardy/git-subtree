@@ -487,11 +487,12 @@ copy_or_skip()
 
 ensure_clean()
 {
+    op=$1
     if ! git diff-index HEAD --exit-code --quiet 2>&1; then
-        die "Working tree has modifications.  Cannot add."
+        die "Working tree has modifications.  Cannot $op."
     fi
     if ! git diff-index --cached HEAD --exit-code --quiet 2>&1; then
-        die "Index has modifications.  Cannot add."
+        die "Index has modifications.  Cannot $op."
     fi
 }
 
@@ -501,7 +502,7 @@ cmd_add()
         die "'$dir' already exists.  Cannot add."
     fi
 
-    ensure_clean
+    ensure_clean "add"
 
     if [ $# -eq 1 ]; then
         "cmd_add_commit" "$@"
@@ -522,7 +523,6 @@ cmd_add_repository()
     git fetch "$@" || exit $?
     revs=FETCH_HEAD
     set -- $revs
-    cmd_add_commit "$@"
 
     # now add it to our list of repos 
     git config -f .gittrees --unset subtree.$dir.url
@@ -531,6 +531,9 @@ cmd_add_repository()
     git config -f .gittrees --add subtree.$dir.path $dir
     git config -f .gittrees --unset subtree.$dir.branch
     git config -f .gittrees --add subtree.$dir.branch $refspec
+    git add .gittrees
+
+    cmd_add_commit "$@"
 }
 
 cmd_add_commit()
@@ -551,14 +554,9 @@ cmd_add_commit()
         headp=
     fi
 
-    if [ -n "$squash" ]; then
-        rev=$(new_squash_commit "" "" "$rev") || exit $?
-        commit=$(add_squashed_msg "$rev" "$dir" |
-        git commit-tree $tree $headp -p "$rev") || exit $?
-    else
-        commit=$(add_msg "$dir" "$headrev" "$rev" |
-        git commit-tree $tree $headp -p "$rev") || exit $?
-    fi
+    rev=$(new_squash_commit "" "" "$rev") || exit $?
+    commit=$(add_squashed_msg "$rev" "$dir" |
+    git commit-tree $tree $headp -p "$rev") || exit $?
     git reset "$commit" || exit $?
 
     say "Added dir '$dir'"
@@ -573,6 +571,9 @@ cmd_del()
     if [ ! -e "./$path" ]; then
         die "subtree $path does not exist"
     fi
+
+    ensure_clean "delete"
+
     echo "removing subtree $path"
     git rm -rf $path
     git config -f .gittrees --remove-section subtree.$path
@@ -676,7 +677,7 @@ cmd_split()
 cmd_merge()
 {
     revs=$(git rev-parse $default --revs-only "$@") || exit $?
-    ensure_clean
+    ensure_clean "merge"
 
     set -- $revs
     if [ $# -ne 1 ]; then
@@ -724,7 +725,7 @@ cmd_pull()
         die "You should provide either <refspec> or <repository> <refspec>"
     fi
     if [ -e "$dir" ]; then
-        ensure_clean
+        ensure_clean "pull"
         if [ $# -eq 1 ]; then 
             repository=$(git config -f .gittrees subtree.$prefix.url)
             refspec=$1
