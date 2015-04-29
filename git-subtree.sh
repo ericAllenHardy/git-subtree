@@ -9,10 +9,10 @@ if [ $# -eq 0 ]; then
 fi
 OPTS_SPEC="\
 git subtree add   --prefix=<prefix> <repository> <refspec>
+git subtree del   <subtree name> 
 git subtree merge --prefix=<prefix> <commit>
 git subtree pull  --prefix=<prefix> [<repository> [<refspec>...]]
 git subtree pull-all
-git subtree push-all
 git subtree push  --prefix=<prefix> [<repository> [<refspec>...]]
 git subtree split --prefix=<prefix> <commit...>
 git subtree diff  --prefix=<prefix> [<repository> [<refspec>...]]
@@ -103,20 +103,20 @@ done
 command="$1"
 shift
 case "$command" in
-    add|merge|pull|pull-all|push-all|prune) default= ;;
+    add|del|merge|pull|pull-all|prune) default= ;;
     split|push|diff|list) default="--default HEAD" ;;
     *) die "Unknown command '$command'" ;;
 esac
 
-if [ -z "$prefix" -a "$command" != "pull-all" -a "$command" != "push-all" -a "$command" != "list" -a "$command" != "prune" ]; then
+if [ -z "$prefix" -a "$command" != "pull-all" -a "$command" != "list" -a "$command" != "prune" -a "$command" != "del" ]; then
     die "You must provide the --prefix option."
 fi
 
 case "$command" in
     pull-all);;
-    push-all);;
     list);;
     prune);;
+    del);;
     add) [ -e "$prefix" ] && 
         die "prefix '$prefix' already exists." ;;
     *)   [ -e "$prefix" ] || 
@@ -125,7 +125,7 @@ esac
 
 dir="$(dirname "$prefix/.")"
 
-if [ "$command" != "pull" -a "$command" != "add" -a "$command" != "push" -a "$command" != "pull-all" -a "$command" != "diff" ]; then
+if [ "$command" != "pull" -a "$command" != "add" -a "$command" != "del" -a "$command" != "push" -a "$command" != "pull-all" -a "$command" != "diff" ]; then
     revs=$(git rev-parse $default --revs-only "$@") || exit $?
     dirs="$(git rev-parse --no-revs --no-flags "$@")" || exit $?
     if [ -n "$dirs" ]; then
@@ -564,6 +564,22 @@ cmd_add_commit()
     say "Added dir '$dir'"
 }
 
+cmd_del()
+{
+    if [ $# -ne 1 ]; then
+        die "must specify a subtree to delete"
+    fi
+    path="$1"
+    if [ ! -e "./$path" ]; then
+        die "subtree $path does not exist"
+    fi
+    echo "removing subtree $path"
+    git rm -rf $path
+    git config -f .gittrees --remove-section subtree.$path
+    git add .gittrees
+    git commit -m "removed subtree $path"
+}
+
 cmd_split()
 {
     debug "Splitting $dir..."
@@ -817,16 +833,16 @@ cmd_pull-all()
 {
     git config -f .gittrees -l | grep subtree | grep path | grep -o '=.*' | grep -o '[^=].*' |
     while read path; do
-        git subtree pull -P $path $(git config -f .gittrees subtree.$path.url) $(git config -f .gittrees subtree.$path.branch) || exit $?
+        git subtree pull -P $path $(git config -f .gittrees subtree.$path.url) $(git config -f .gittrees subtree.$path.branch) --squash || exit $?
     done
 }
 
-cmd_push-all()
-{
-    git config -f .gittrees -l | grep subtree | grep path | grep -o '=.*' | grep -o '[^=].*' |
-    while read path; do
-        git subtree push -P $path $(git config -f .gittrees subtree.$path.url) $(git config -f .gittrees subtree.$path.branch) || exit $?
-    done
-}
+#cmd_push-all()
+#{
+#    git config -f .gittrees -l | grep subtree | grep path | grep -o '=.*' | grep -o '[^=].*' |
+#    while read path; do
+#        git subtree push -P $path $(git config -f .gittrees subtree.$path.url) $(git config -f .gittrees subtree.$path.branch) || exit $?
+#    done
+#}
 
 "cmd_$command" "$@"

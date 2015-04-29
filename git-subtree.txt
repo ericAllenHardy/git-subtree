@@ -10,10 +10,12 @@ SYNOPSIS
 --------
 [verse]
 'git subtree' add   -P <prefix> <commit>
+'git subtree' del   <subtree path>
 'git subtree' pull  -P <prefix> <repository> <refspec...>
 'git subtree' push  -P <prefix> <repository> <refspec...>
 'git subtree' merge -P <prefix> <commit>
 'git subtree' split -P <prefix> [OPTIONS] [<commit>]
+'git subtree' pull-all
 
 
 DESCRIPTION
@@ -73,6 +75,9 @@ add::
 	only a single commit from the subproject, rather than its
 	entire history.
 
+del::
+    Remove the subtree at <subtree path> and commit it deletion
+
 merge::
 	Merge recent changes up to <commit> into the <prefix>
 	subtree.  As with normal 'git merge', this doesn't
@@ -122,6 +127,8 @@ split::
 	Note that if you use '--squash' when you merge, you
 	should usually not just '--rejoin' when you split.
 
+pull-all::
+    Pull all subtrees and squash their commits into one each
 
 OPTIONS
 -------
